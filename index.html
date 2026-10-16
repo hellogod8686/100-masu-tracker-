@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f8fa">
+<title>100マス記録トラッカー</title>
+<style>
+:root{color-scheme:light;--ink:#18212f;--muted:#667085;--line:#e3e7ed;--green:#15966a;--bg:#f7f8fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif}
+main{max-width:680px;margin:auto;padding:22px 14px calc(30px + env(safe-area-inset-bottom))}
+header{margin-bottom:18px}h1{font-size:24px;margin:0 0 7px;letter-spacing:-.03em}p{margin:0;color:var(--muted);line-height:1.6;font-size:14px}
+.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:13px}
+label{display:block;font-size:13px;font-weight:650;margin-bottom:7px}
+input,select{font:inherit;color:var(--ink);background:white;border:1px solid #d0d5dd;border-radius:10px;padding:12px;min-width:0;width:100%}
+button{font:inherit;cursor:pointer;border:0;border-radius:11px;padding:12px 14px;font-weight:650}
+.primary{background:var(--green);color:white}.primary:disabled{background:#d8e2dd;color:#66756e;cursor:default}
+.secondary{background:#edf0f4;color:#344054}.danger{background:#fff0ef;color:#b42318}
+.addrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.addrow button{white-space:nowrap}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:13px 0}
+.stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px}.stat .label{font-size:12px;color:var(--muted)}.stat strong{display:block;font-size:25px;margin-top:3px;font-variant-numeric:tabular-nums}
+.progress-wrap{height:7px;background:#e9edf1;border-radius:99px;overflow:hidden;margin-top:9px}.progress{height:100%;width:0;background:var(--green);transition:width .2s}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.sectionhead h2{font-size:16px;margin:0}.sectionhead span{font-size:12px;color:var(--muted)}
+.tracker{border:1px solid var(--line);background:#fff;border-radius:16px;padding:14px;margin-bottom:12px}
+.tracker-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:11px}.tracker-name{font-size:17px;font-weight:750;overflow-wrap:anywhere}.tracker-sub{font-size:12px;color:var(--muted);margin-top:3px}.tracker-actions{display:flex;gap:5px;flex-shrink:0}.mini{font-size:12px;padding:7px 9px;background:#edf0f4;color:#344054}
+.grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px}
+.cell{aspect-ratio:1;min-width:0;padding:0;border:1px solid var(--line);background:#f3f5f7;color:#667085;border-radius:7px;font-size:11px;display:flex;align-items:center;justify-content:center}
+.cell.done{background:var(--green);color:#fff;border-color:var(--green)}.cell.today-cell{outline:2px solid #25364a;outline-offset:1px}
+.track-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}.track-bottom p{font-size:12px}
+.note,footer{font-size:11px;color:var(--muted);line-height:1.65;margin:10px 2px 0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}.actions button{font-size:12px}
+.empty{padding:18px 10px;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:380px){main{padding:17px 10px}.grid{gap:3px}.cell{border-radius:5px;font-size:10px}.tracker{padding:11px}.tracker-name{font-size:15px}.addrow button{padding:12px 10px;font-size:13px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>100マス記録トラッカー</h1>
+<p>勉強・運動・読書など、記録したい項目を複数作成。それぞれ1日1回ずつ記録できます。</p>
+</header>
+
+<section class="panel">
+<div class="sectionhead"><h2>記録する種類を追加</h2><span id="trackerCount">0種類</span></div>
+<form id="addForm" class="addrow">
+<div><label for="newName">記録名</label><input id="newName" maxlength="30" placeholder="例：勉強、筋トレ、読書" required></div>
+<button class="primary" type="submit">追加する</button>
+</form>
+<p class="note">項目ごとに100マスを管理します。たとえば「勉強」と「運動」は、同じ日にそれぞれ1回ずつ記録できます。</p>
+</section>
+
+<section class="stats" aria-label="全体の達成状況">
+<div class="stat"><span class="label">今日の記録</span><strong id="todayCount">0種類</strong></div>
+<div class="stat"><span class="label">全体の達成率</span><strong id="overallRate">0%</strong><div class="progress-wrap"><div id="overallProgress" class="progress"></div></div></div>
+</section>
+
+<div class="sectionhead" style="padding:0 3px"><h2>あなたの記録</h2><span>各項目 100マス</span></div>
+<div id="trackers"></div>
+<div class="panel">
+<div class="sectionhead"><h2>データ管理</h2></div>
+<div class="actions">
+<button id="exportBtn" class="secondary" type="button">バックアップを書き出す</button>
+<button id="importBtn" class="secondary" type="button">バックアップを復元</button>
+<button id="resetBtn" class="danger" type="button">全記録をリセット</button>
+</div>
+<input id="importFile" type="file" accept="application/json,.json" hidden>
+<p class="note">記録はこのブラウザ内に保存されます。ブラウザのデータ削除や端末変更に備えて、定期的にバックアップしてください。</p>
+</div>
+<footer>日付は端末の現地時間を使います。各項目で1日に記録できるのは1回です。100マス達成後も過去の記録は残ります。</footer>
+</main>
+<script>
+(() => {
+  const KEY = "daily-grid-tracker-multi-v2";
+  const $ = id => document.getElementById(id);
+  const dateKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const pretty = key => { const [y,m,d] = key.split("-").map(Number); return `${y}年${m}月${d}日`; };
+  const makeId = () => "t" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  let state = {trackers:[]};
+  try {
+    const parsed=JSON.parse(localStorage.getItem(KEY)||"null");
+    if(parsed && Array.isArray(parsed.trackers)) state=parsed;
+    else {
+      // Migrate the previous single-tracker format when present.
+      const old=JSON.parse(localStorage.getItem("daily-grid-tracker-v1")||"{}");
+      const valid=Object.fromEntries(Object.entries(old).filter(([k,v])=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&Number.isInteger(v)&&v>=1&&v<=100));
+      if(Object.keys(valid).length) state.trackers=[{id:makeId(),name:"記録",records:valid}];
+    }
+  } catch {}
+  state.trackers=state.trackers.filter(t=>t&&typeof t.id==="string"&&typeof t.name==="string"&&t.records&&typeof t.records==="object"&&!Array.isArray(t.records)).map(t=>({
+    id:t.id,name:t.name.slice(0,30),
+    records:Object.fromEntries(Object.entries(t.records).filter(([k,v])=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&Number.isInteger(v)&&v>=1&&v<=100))
+  }));
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch{alert("保存できませんでした。ブラウザの保存領域を確認してください。");return false}}
+  function addTracker(name){
+    name=name.trim().slice(0,30); if(!name)return;
+    if(state.trackers.some(t=>t.name.toLocaleLowerCase()===name.toLocaleLowerCase())){alert("同じ名前の項目がすでにあります。別の名前にしてください。");return}
+    state.trackers.push({id:makeId(),name,records:{}});
+    if(save())render();
+  }
+  function render(){
+    const today=dateKey(), host=$("trackers");
+    host.replaceChildren();
+    $("trackerCount").textContent=`${state.trackers.length}種類`;
+    let total=0, earned=0, todayTotal=0;
+    state.trackers.forEach(t=>{
+      const entries=Object.entries(t.records), count=entries.length;
+      total+=100; earned+=count; if(t.records[today])todayTotal++;
+      const article=document.createElement("section");article.className="tracker";
+      const top=document.createElement("div");top.className="tracker-top";
+      const titleWrap=document.createElement("div");
+      const title=document.createElement("div");title.className="tracker-name";title.textContent=t.name;
+      const sub=document.createElement("div");sub.className="tracker-sub";sub.textContent=`達成 ${count}/100 ・ ${count}%`;
+      titleWrap.append(title,sub);
+      const controls=document.createElement("div");controls.className="tracker-actions";
+      const rename=document.createElement("button");rename.type="button";rename.className="mini";rename.textContent="名前変更";
+      rename.addEventListener("click",()=>{const value=prompt("新しい記録名を入力してください",t.name);if(value===null)return;const n=value.trim().slice(0,30);if(!n){alert("記録名を入力してください。");return}if(state.trackers.some(x=>x.id!==t.id&&x.name.toLocaleLowerCase()===n.toLocaleLowerCase())){alert("同じ名前の項目がすでにあります。");return}t.name=n;if(save())render()});
+      const remove=document.createElement("button");remove.type="button";remove.className="mini";remove.textContent="削除";
+      remove.addEventListener("click",()=>{if(!confirm(`「${t.name}」の記録をすべて削除しますか？`))return;state.trackers=state.trackers.filter(x=>x.id!==t.id);if(save())render()});
+      controls.append(rename,remove);top.append(titleWrap,controls);article.append(top);
+      const byCell={};for(const [date,cell] of entries)byCell[cell]=date;
+      const grid=document.createElement("div");grid.className="grid";
+      for(let n=1;n<=100;n++){
+        const b=document.createElement("button");b.type="button";b.className="cell";b.textContent=n;
+        b.setAttribute("aria-label",`${t.name} ${n}マス目${byCell[n]?"、"+pretty(byCell[n])+"に記録済み":"、未記録"}`);
+        if(byCell[n]){b.classList.add("done");b.title=pretty(byCell[n])}
+        if(t.records[today]===n)b.classList.add("today-cell");
+        b.addEventListener("click",()=>alert(byCell[n]?`${t.name}：${n}マス目\n${pretty(byCell[n])}に記録済みです。`:`${t.name}：${n}マス目\nまだ記録されていません。`));
+        grid.append(b);
+      }
+      article.append(grid);
+      const bottom=document.createElement("div");bottom.className="track-bottom";
+      const status=document.createElement("p");status.textContent=t.records[today]?`今日の記録済み（${t.records[today]}マス目）`:"今日はまだ記録していません";
+      const mark=document.createElement("button");mark.type="button";mark.className="primary";mark.textContent=t.records[today]?"今日の記録済み":"今日を塗る";mark.disabled=Boolean(t.records[today]);
+      mark.addEventListener("click",()=>{
+        if(t.records[dateKey()])return;
+        const used=new Set(Object.values(t.records));let next=1;while(next<=100&&used.has(next))next++;
+        if(next>100){alert(`「${t.name}」は100マス達成済みです。`);return}
+        t.records[dateKey()]=next;if(save())render();
+      });
+      bottom.append(status,mark);article.append(bottom);host.append(article);
+    });
+    if(state.trackers.length===0){const e=document.createElement("div");e.className="panel empty";e.textContent="まだ項目がありません。上から「勉強」「運動」などを追加してください。";host.append(e)}
+    $("todayCount").textContent=`${todayTotal}種類`;
+    const rate=total?Math.round(earned/total*100):0;
+    $("overallRate").textContent=`${rate}%`; $("overallProgress").style.width=`${rate}%`;
+  }
+  $("addForm").addEventListener("submit",e=>{e.preventDefault();addTracker($("newName").value);$("newName").value="";});
+  $("exportBtn").addEventListener("click",()=>{
+    const blob=new Blob([JSON.stringify({app:"daily-grid-tracker-multi",version:2,trackers:state.trackers},null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`100-masu-backup-${dateKey()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+  $("importBtn").addEventListener("click",()=>$("importFile").click());
+  $("importFile").addEventListener("change",async e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    try{
+      const data=JSON.parse(await file.text());if(!Array.isArray(data.trackers))throw Error();
+      const incoming=data.trackers.filter(t=>t&&typeof t.name==="string"&&t.records&&typeof t.records==="object"&&!Array.isArray(t.records)).map(t=>({
+        id:typeof t.id==="string"?t.id:makeId(),name:t.name.trim().slice(0,30)||"記録",
+        records:Object.fromEntries(Object.entries(t.records).filter(([k,v])=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&Number.isInteger(v)&&v>=1&&v<=100))
+      }));
+      if(!confirm("現在の記録を、バックアップの内容に置き換えますか？"))return;
+      state={trackers:incoming};if(save())render();
+    }catch{alert("このバックアップファイルを読み込めませんでした。")}
+    finally{e.target.value=""}
+  });
+  $("resetBtn").addEventListener("click",()=>{if(!confirm("すべての項目と記録を削除します。この操作は取り消せません。"))return;state={trackers:[]};if(save())render()});
+  render();
+})();
+</script>
+</body>
+</html>
